@@ -1,0 +1,15 @@
+version: "3.9"
+
+services:
+  web:
+    build: .
+    container_name: malicious-ip-web
+    ports:
+      - "8000:8000"
+    environment:
+      - DJANGO_SETTINGS_MODULE=ipservice.settings
+    # Pour le développement : code, base SQLite et archives restent sur l’hôte
+    volumes:
+      - .:/app
+    restart: unless-stopped
+

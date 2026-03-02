@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>ATOS IP FEED - Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link href="{% static 'css/tailwind.css' %}" rel="stylesheet" />
+  </head>
+  <body class="bg-slate-950 text-slate-100 min-h-screen">
+    <div class="max-w-6xl mx-auto px-4 py-8">
+      <header class="mb-8 flex items-center justify-between">
+        <div>
+          <h1 class="text-3xl font-bold tracking-tight">
+            ATOS IP FEED - Dashboard
+          </h1>
+          <p class="mt-1 text-sm text-slate-400">
+            Suivi des listes FireHOL / DShield et du fichier agrégé d’IP malicieuses.
+          </p>
+        </div>
+        <div class="flex items-center gap-3">
+          <form
+            method="post"
+            class="flex items-center gap-2 bg-slate-900/80 border border-slate-700 rounded-lg px-3 py-1.5"
+          >
+            {% csrf_token %}
+            <label class="text-xs text-slate-300">
+              Fréquence (min)
+            </label>
+            <input
+              type="number"
+              name="update_interval_minutes"
+              min="1"
+              max="1440"
+              value="{{ config.update_interval_minutes }}"
+              class="w-20 rounded-md bg-slate-800 border border-slate-600 px-2 py-1 text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+            />
+            <button
+              type="submit"
+              class="inline-flex items-center rounded-md bg-slate-700 px-3 py-1 text-xs font-semibold text-slate-50 hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 focus:ring-offset-slate-950"
+            >
+              Enregistrer
+            </button>
+          </form>
+          <button
+            id="refresh-btn"
+            class="inline-flex items-center rounded-md bg-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 focus:ring-offset-slate-950"
+          >
+            Rafraîchir maintenant
+          </button>
+        </div>
+      </header>
+
+      {% if config_error %}
+        <div class="mb-4 rounded-lg border border-red-700 bg-red-950/40 px-4 py-2 text-xs text-red-200">
+          {{ config_error }}
+        </div>
+      {% endif %}
+
+      <section class="grid gap-6 md:grid-cols-2 mb-8">
+        <div class="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
+          <h2 class="text-lg font-semibold flex items-center gap-2">
+            <span class="h-2 w-2 rounded-full bg-emerald-400"></span>
+            Statut général
+          </h2>
+          <dl class="mt-4 space-y-2 text-sm">
+            <div class="flex justify-between">
+              <dt class="text-slate-400">Dernière mise à jour (dernier run)</dt>
+              <dd class="font-mono">
+                {% if last_update %}{{ last_update }}{% else %}Jamais{% endif %}
+              </dd>
+            </div>
+            <div class="flex justify-between">
+              <dt class="text-slate-400">Entrées (dernier run en base)</dt>
+              <dd class="font-mono">
+                {% if recent_runs %}
+                  {{ recent_runs.0.entries_count }}
+                {% else %}
+                  -
+                {% endif %}
+              </dd>
+            </div>
+            <div class="flex justify-between">
+              <dt class="text-slate-400">Entrées FireHOL (dernier run)</dt>
+              <dd class="font-mono">
+                {% if recent_runs %}
+                  {{ recent_runs.0.firehol_count }}
+                {% else %}
+                  -
+                {% endif %}
+              </dd>
+            </div>
+            <div class="flex justify-between">
+              <dt class="text-slate-400">Entrées DShield (dernier run)</dt>
+              <dd class="font-mono">
+                {% if recent_runs %}
+                  {{ recent_runs.0.dshield_count }}
+                {% else %}
+                  -
+                {% endif %}
+              </dd>
+            </div>
+          </dl>
+        </div>
+
+        <div class="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
+          <h2 class="text-lg font-semibold">Sources</h2>
+          <dl class="mt-4 space-y-3 text-sm">
+            <div>
+              <dt class="text-slate-400">FireHOL</dt>
+              <dd class="font-mono break-all text-emerald-300">
+                {{ firehol_info.url }}
+              </dd>
+            </div>
+            <div>
+              <dt class="text-slate-400">DShield</dt>
+              <dd class="font-mono break-all text-emerald-300">
+                {{ dshield_info.url }}
+              </dd>
+            </div>
+          </dl>
+        </div>
+      </section>
+
+      <section class="mb-8">
+        <h2 class="text-lg font-semibold mb-3">
+          Fichier final exposé (`/malicious-ips/`)
+        </h2>
+        <div class="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/60">
+          <table class="min-w-full text-sm">
+            <thead class="bg-slate-900">
+              <tr>
+                <th class="px-4 py-2 text-left font-semibold text-slate-300">
+                  Chemin
+                </th>
+                <th class="px-4 py-2 text-left font-semibold text-slate-300">
+                  Existe
+                </th>
+                <th class="px-4 py-2 text-right font-semibold text-slate-300">
+                  Taille (octets)
+                </th>
+                <th class="px-4 py-2 text-right font-semibold text-slate-300">
+                  Lignes
+                </th>
+                <th class="px-4 py-2 text-left font-semibold text-slate-300">
+                  Dernière modif.
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if output_info.exists %}
+                <tr class="border-t border-slate-800">
+                  <td class="px-4 py-2 font-mono text-xs">
+                    {{ output_info.path }}
+                  </td>
+                  <td class="px-4 py-2">
+                    <span class="inline-flex items-center rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-medium text-emerald-300">
+                      oui
+                    </span>
+                  </td>
+                  <td class="px-4 py-2 text-right font-mono">
+                    {{ output_info.size }}
+                  </td>
+                  <td class="px-4 py-2 text-right font-mono">
+                    {{ output_info.lines }}
+                  </td>
+                  <td class="px-4 py-2 text-xs text-slate-300">
+                    {{ output_info.mtime }}
+                  </td>
+                </tr>
+              {% else %}
+                <tr>
+                  <td colspan="5" class="px-4 py-3 text-center text-slate-400">
+                    Fichier final non encore généré.
+                  </td>
+                </tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="mb-8">
+        <h2 class="text-lg font-semibold mb-3">Archives du fichier final</h2>
+        <div class="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/60">
+          <table class="min-w-full text-sm">
+            <thead class="bg-slate-900">
+              <tr>
+                <th class="px-4 py-2 text-left font-semibold text-slate-300">
+                  Chemin
+                </th>
+                <th class="px-4 py-2 text-right font-semibold text-slate-300">
+                  Taille
+                </th>
+                <th class="px-4 py-2 text-right font-semibold text-slate-300">
+                  Lignes
+                </th>
+                <th class="px-4 py-2 text-left font-semibold text-slate-300">
+                  Dernière modif.
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if archives %}
+                {% for a in archives %}
+                  <tr class="border-t border-slate-800">
+                    <td class="px-4 py-2 font-mono text-xs">
+                      {{ a.path }}
+                    </td>
+                    <td class="px-4 py-2 text-right font-mono">
+                      {{ a.size }}
+                    </td>
+                    <td class="px-4 py-2 text-right font-mono">
+                      {{ a.lines }}
+                    </td>
+                    <td class="px-4 py-2 text-xs text-slate-300">
+                      {{ a.mtime }}
+                    </td>
+                  </tr>
+                {% endfor %}
+              {% else %}
+                <tr>
+                  <td colspan="4" class="px-4 py-3 text-center text-slate-400">
+                    Aucune archive pour le moment.
+                  </td>
+                </tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2 class="text-lg font-semibold mb-3">Historique des mises à jour</h2>
+        <div class="overflow-x-auto rounded-xl border border-slate-800 bg-slate-900/60">
+          <table class="min-w-full text-sm">
+            <thead class="bg-slate-900">
+              <tr>
+                <th class="px-4 py-2 text-left font-semibold text-slate-300">
+                  Date
+                </th>
+                <th class="px-4 py-2 text-right font-semibold text-slate-300">
+                  Entrées
+                </th>
+                <th class="px-4 py-2 text-right font-semibold text-slate-300">
+                  FireHOL
+                </th>
+                <th class="px-4 py-2 text-right font-semibold text-slate-300">
+                  DShield
+                </th>
+                <th class="px-4 py-2 text-left font-semibold text-slate-300">
+                  Archive
+                </th>
+                <th class="px-4 py-2 text-left font-semibold text-slate-300">
+                  Erreur
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if recent_runs %}
+                {% for run in recent_runs %}
+                  <tr class="border-t border-slate-800">
+                    <td class="px-4 py-2 text-xs text-slate-200">
+                      {{ run.run_at }}
+                    </td>
+                    <td class="px-4 py-2 text-right font-mono">
+                      {{ run.entries_count }}
+                    </td>
+                    <td class="px-4 py-2 text-right font-mono">
+                      {{ run.firehol_count }}
+                    </td>
+                    <td class="px-4 py-2 text-right font-mono">
+                      {{ run.dshield_count }}
+                    </td>
+                    <td class="px-4 py-2 font-mono text-xs">
+                      {{ run.archive_file|default:"-" }}
+                    </td>
+                    <td class="px-4 py-2 text-xs">
+                      {% if run.error %}
+                        <span class="text-red-400">{{ run.error|truncatechars:80 }}</span>
+                      {% else %}
+                        <span class="text-emerald-400">OK</span>
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              {% else %}
+                <tr>
+                  <td colspan="4" class="px-4 py-3 text-center text-slate-400">
+                    Aucune mise à jour encore enregistrée.
+                  </td>
+                </tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <!-- JS pour rafraîchir via l'API texte (manuel + auto) -->
+    <script>
+      const manualBtn = document.getElementById("refresh-btn");
+      if (manualBtn) {
+        manualBtn.addEventListener("click", () => {
+          fetch("{% url 'malicious_ips' %}?force=1")
+            .then((resp) => {
+              if (!resp.ok) {
+                throw new Error("Erreur HTTP " + resp.status);
+              }
+              // Recharger la page dashboard après mise à jour forcée
+              window.location.reload();
+            })
+            .catch((err) => {
+              alert("Échec du rafraîchissement : " + err.message);
+            });
+        });
+      }
+
+      // Rafraîchissement automatique basé sur le paramètre du dashboard
+      (function () {
+        const refreshMinutes = {{ config.update_interval_minutes|default:60 }};
+        if (!refreshMinutes || refreshMinutes <= 0) {
+          return;
+        }
+        const refreshMs = refreshMinutes * 60 * 1000;
+        setInterval(() => {
+          fetch("{% url 'malicious_ips' %}")
+          .then((resp) => {
+            if (!resp.ok) {
+              throw new Error("Erreur HTTP " + resp.status);
+            }
+              // On recharge le dashboard pour refléter le nouveau run éventuel
+              window.location.reload();
+          })
+          .catch((err) => {
+              console.error("Échec du rafraîchissement auto :", err);
+          });
+        }, refreshMs);
+      })();
+    </script>
+  </body>
+</html>
+

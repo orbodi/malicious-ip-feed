@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pdb
+*.egg-info/
+
+# Environment
+.venv/
+venv/
+env/
+
+# Django / SQLite
+db.sqlite3
+*.sqlite3
+
+# Logs
+*.log
+
+# Node / Front
+node_modules/
+.npm/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Coverage / tests
+.coverage
+htmlcov/
+
+# Docker artefacts
+*.pid
+
+# Local generated files
+malicious_ips.txt
+archives/
+

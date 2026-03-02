@@ -1,0 +1,4 @@
+django
+fastapi
+uvicorn[standard]
+requests
