@@ -1,4 +1,4 @@
-# ATOS IP FEED
+# MALICIOUS IP FEED
 
 Ce petit projet agrège des listes d'IP malicieuses et les expose via une API HTTP simple, exploitable par n’importe quel pare-feu, reverse proxy ou système de sécurité réseau.
 
