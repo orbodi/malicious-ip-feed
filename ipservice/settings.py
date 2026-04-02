@@ -25,7 +25,19 @@ SECRET_KEY = 'django-insecure-bqdzf7hudfi)p_%4y88q5im%&ksw$#obic52_hv1p%#!lnwzoj
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    "eid.local",
+    "atos-feed.eid.local",
+    "localhost",
+    "127.0.0.1",
+]
+
+# Pour les requêtes POST (upload/paramétrage) faites derrière Nginx en HTTPS.
+# Django compare l'Origin/Referer à ces valeurs.
+CSRF_TRUSTED_ORIGINS = [
+    "https://eid.local",
+    "https://atos-feed.eid.local",
+]
 
 
 # Application definition

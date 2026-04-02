@@ -72,3 +72,13 @@ Par exemple :
 
 La commande respecte le TTL configuré dans le dashboard. Pour forcer la reconstruction à chaque exécution, ajoutez `--force`.
 
+## Ajout d’une source ATOS (CSV)
+
+Pour fusionner un fichier CSV “ATOS” avec FireHOL + DShield :
+
+1. Copiez vos CSV dans le dossier `atos_feeds/` (à la racine du projet).
+2. Le format attendu est :
+   - colonne `Addresses` contenant des IP séparées par `;`
+
+À chaque mise à jour, le service lit tous les `*.csv` présents dans `atos_feeds/` et les fusionne dans `malicious_ips.txt`.
+

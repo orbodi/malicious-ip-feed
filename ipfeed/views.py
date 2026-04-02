@@ -9,6 +9,7 @@ from .services import (
     ARCHIVE_DIR,
     DSHIELD_URL,
     FIREHOL_URL,
+    ATOS_FEEDS_DIR,
     OUTPUT_FILE,
     ensure_updated,
     get_last_update,
@@ -61,22 +62,53 @@ def _get_config() -> FeedConfig:
 def dashboard(request):
     cfg = _get_config()
     config_error = ""
+    upload_message = ""
+    force_refresh = False
 
     if request.method == "POST":
-        raw = request.POST.get("update_interval_minutes")
-        try:
-            minutes = int(raw)
-            if minutes < 1 or minutes > 1440:
-                raise ValueError
-            cfg.update_interval_minutes = minutes
-            cfg.save()
-        except (TypeError, ValueError):
-            config_error = "Valeur invalide, merci de choisir entre 1 et 1440 minutes."
+        # 1) Upload CSV ATOS (1 fichier à la fois)
+        if "atos_csv" in request.FILES:
+            uploaded = request.FILES["atos_csv"]
+
+            filename = Path(uploaded.name).name  # sécurité: pas de path traversal
+            if not filename.lower().endswith(".csv"):
+                upload_message = "Le fichier doit être un CSV (.csv)."
+            else:
+                # Remplacer l'ancien CSV par le nouveau
+                ATOS_FEEDS_DIR.mkdir(parents=True, exist_ok=True)
+                for f in ATOS_FEEDS_DIR.glob("*.csv"):
+                    try:
+                        f.unlink()
+                    except OSError:
+                        pass
+
+                out_path = ATOS_FEEDS_DIR / filename
+                try:
+                    with out_path.open("wb") as dest:
+                        for chunk in uploaded.chunks():
+                            dest.write(chunk)
+                    upload_message = "CSV ATOS importé avec succès."
+                    force_refresh = True
+                except OSError:
+                    upload_message = "Erreur lors de l'enregistrement du CSV."
+        else:
+            # 2) Paramétrage TTL (fréquence)
+            raw = request.POST.get("update_interval_minutes")
+            try:
+                minutes = int(raw)
+                if minutes < 1 or minutes > 1440:
+                    raise ValueError
+                cfg.update_interval_minutes = minutes
+                cfg.save()
+            except (TypeError, ValueError):
+                config_error = (
+                    "Valeur invalide, merci de choisir entre 1 et 1440 minutes."
+                )
 
     # Déclenche une mise à jour "automatique" si le TTL est dépassé,
     # sans forcer si le cache est encore valide.
     try:
-        ensure_updated()
+        ensure_updated(force=force_refresh)
     except Exception:
         # On ne casse pas le dashboard si la mise à jour échoue
         pass
@@ -108,6 +140,7 @@ def dashboard(request):
         "recent_runs": recent_runs,
         "config": cfg,
         "config_error": config_error,
+        "upload_message": upload_message,
     }
     return render(request, "ipfeed/dashboard.html", context)
 

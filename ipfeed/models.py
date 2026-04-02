@@ -6,6 +6,7 @@ class UpdateRun(models.Model):
     entries_count = models.IntegerField()
     firehol_count = models.IntegerField(default=0)
     dshield_count = models.IntegerField(default=0)
+    atos_count = models.IntegerField(default=0)
     main_file = models.CharField(max_length=255)
     archive_file = models.CharField(max_length=255, blank=True)
     error = models.TextField(blank=True)
